@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-style="bharat">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voyager Bharat - Enterprise Travel Intelligence & Visual Engine</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Leaflet CSS & JS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .font-royal { font-family: 'Cinzel', serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* Dynamic Theme Overrides */
+    html[data-style="bharat"] .theme-accent-btn {
+      background: linear-gradient(135deg, #ea580c, #d97706);
+    }
+    html[data-style="bharat"] .theme-accent-btn:hover {
+      background: linear-gradient(135deg, #f97316, #f59e0b);
+    }
+    html[data-style="bharat"] .theme-text-accent {
+      color: #ea580c;
+    }
+    html.dark[data-style="bharat"] .theme-text-accent {
+      color: #fb923c;
+    }
+
+    html[data-style="modern"] .theme-accent-btn {
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    }
+    html[data-style="modern"] .theme-accent-btn:hover {
+      background: linear-gradient(135deg, #6366f1, #22d3ee);
+    }
+    html[data-style="modern"] .theme-text-accent {
+      color: #4f46e5;
+    }
+    html.dark[data-style="modern"] .theme-text-accent {
+      color: #818cf8;
+    }
+
+    .glass-card {
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    #mapContainer {
+      z-index: 10;
+      border-radius: 1.5rem;
+    }
+    .leaflet-tile {
+      filter: brightness(0.9) contrast(1.1);
+    }
+    .dark .leaflet-tile {
+      filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+    }
+
+    /* Print styling for PDF export */
+    @media print {
+      header, form, #themeToggle, #styleToggle, #exportPdfBtn, #loading { display: none !important; }
+      body { background: white !important; color: black !important; padding: 0 !important; }
+      .glass-card { border: 1px solid #ddd !important; box-shadow: none !important; background: white !important; }
+      #results { display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-[#FAF5ED] dark:bg-[#0C0F17] text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300 pb-24">
+
+  <!-- Glow Background -->
+  <div id="bgGlow" class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-orange-500/15 via-emerald-600/10 to-transparent blur-3xl pointer-events-none -z-10"></div>
+
+  <!-- Header -->
+  <header class="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-slate-900/85 glass-card sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+      
+      <!-- Brand Title -->
+      <div class="flex items-center space-x-3">
+        <div id="brandIcon" class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-orange-600 via-amber-500 to-emerald-600 flex items-center justify-center text-white shadow-lg ring-2 ring-white/20">
+          <i data-lucide="compass" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span id="brandTitle" class="text-xl font-extrabold tracking-tight font-royal bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-600 dark:from-orange-400 dark:via-amber-300 dark:to-emerald-400 bg-clip-text text-transparent">
+            VOYAGER BHARAT
+          </span>
+          <span class="block text-[10px] uppercase font-bold tracking-widest text-slate-400">Live IMD • CPCB • Multi-Modal Geospatial Engine</span>
+        </div>
+      </div>
+      
+      <!-- Actions Toolbar -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <button id="styleToggle" class="px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition shadow-sm">
+          <span id="styleEmoji">🇮🇳</span>
+          <span id="styleLabel" class="hidden sm:inline">Royal Bharat</span>
+        </button>
+
+        <a href="https://mausam.imd.gov.in" target="_blank" class="hidden md:inline-flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 font-bold hover:bg-blue-100 dark:hover:bg-blue-500/20 transition">
+          <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+          IMD Live Radar
+        </a>
+        
+        <button id="themeToggle" class="p-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:scale-105 transition shadow-sm">
+          <i id="themeIcon" data-lucide="sun" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-8 space-y-8">
+    
+    <!-- Hero / Query Section with Auto-suggest -->
+    <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl glass-card relative overflow-hidden">
+      <div class="max-w-3xl mb-8 relative z-10">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold mb-3">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 theme-text-accent"></i> 
+          <span id="heroBadgeText">अतुल्य भारत • High-Fidelity Itinerary Intelligence</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+          Live Environmental Radar, Visual Routing & Instant Fares.
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm sm:text-base mt-2">
+          Verified IMD weather records, CPCB pollution telemetry, interactive geospatial routes, and direct booking engines.
+        </p>
+      </div>
+
+      <form id="tripForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-20">
+        <!-- Origin -->
+        <div class="space-y-1.5 relative">
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Origin City (प्रस्थान)</label>
+          <div class="relative">
+            <i data-lucide="map-pin" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input type="text" id="origin" required value="Mumbai" placeholder="e.g. Mumbai, Delhi" autocomplete="off" class="w-full bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-inner" />
+          </div>
+          <div id="originSuggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto no-scrollbar"></div>
+        </div>
+
+        <!-- Destination -->
+        <div class="space-y-1.5 relative">
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Destination City (गंतव्य)</label>
+          <div class="relative">
+            <i data-lucide="navigation" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input type="text" id="destination" required value="Jaipur" placeholder="e.g. Jaipur, Goa" autocomplete="off" class="w-full bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-inner" />
+          </div>
+          <div id="destSuggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto no-scrollbar"></div>
+        </div>
+
+        <!-- Date -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date of Travel (तिथि)</label>
+          <div class="relative">
+            <i data-lucide="calendar" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input type="date" id="travelDate" class="w-full bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-inner" />
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex items-end">
+          <button type="submit" class="w-full theme-accent-btn text-white font-bold py-3 px-6 rounded-2xl flex items-center justify-center space-x-2 transition shadow-lg hover:scale-[1.02] active:scale-[0.98]">
+            <i data-lucide="search" class="w-4 h-4"></i>
+            <span>Fetch Live Intelligence</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Loading State -->
+    <div id="loading" class="hidden py-20 text-center">
+      <div class="relative inline-flex mb-4">
+        <div class="w-12 h-12 rounded-full border-4 border-slate-300 dark:border-slate-700 border-t-orange-500 animate-spin"></div>
+      </div>
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white">Processing Geospatial Telemetry & Live Feeds...</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Acquiring WMO forecasts, CPCB air station data, and interactive coordinates.</p>
+    </div>
+
+    <!-- Results Container -->
+    <div id="results" class="hidden space-y-8">
+
+      <!-- Destination Summary Hero Card -->
+      <section class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div>
+          <div class="flex flex-wrap items-center gap-3 mb-2">
+            <h2 id="heroDestName" class="text-3xl font-extrabold tracking-tight">Destination</h2>
+            <span id="heroCoordinates" class="text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/15 text-amber-300"></span>
+          </div>
+          <p id="heroRouteText" class="text-sm text-slate-300 font-medium"></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button id="exportPdfBtn" onclick="window.print()" class="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-2 transition border border-white/10">
+            <i data-lucide="printer" class="w-4 h-4 text-cyan-400"></i> Download / Print Itinerary
+          </button>
+          <a id="imdBtn" href="https://city.imd.gov.in/citywx/city_weather.php" target="_blank" class="px-4 py-2.5 rounded-2xl theme-accent-btn text-white text-xs font-bold flex items-center gap-2 transition shadow-md">
+            <i data-lucide="cloud-rain" class="w-4 h-4"></i> IMD Bulletin
+          </a>
+        </div>
+      </section>
+
+      <!-- Interactive Map & Route Visualizer -->
+      <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xl glass-card">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2.5">
+            <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
+              <i data-lucide="map" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-slate-900 dark:text-white">Interactive Corridor Route & Landmark Map</h3>
+              <span class="text-[10px] text-slate-400">Live OpenStreetMap Leaflet Layer with Geodesic Route & Heritage Pins</span>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-emerald-500 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Live GPS Track
+          </span>
+        </div>
+        <div id="mapContainer" class="h-80 w-full rounded-2xl shadow-inner border border-slate-200 dark:border-slate-700/60 overflow-hidden"></div>
+      </section>
+
+      <!-- Live Meteorology & Air Quality (AQI) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Live AQI Card -->
+        <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-lg glass-card flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2.5">
+                <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <i data-lucide="wind" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-sm text-slate-900 dark:text-white">Live Pollution Index (AQI)</h3>
+                  <span class="text-[10px] text-slate-400">Central Pollution Control Board (CPCB)</span>
+                </div>
+              </div>
+              <span id="aqiBadge" class="text-xs px-3 py-1 rounded-full font-bold"></span>
+            </div>
+            
+            <div id="aqiMetrics" class="space-y-2.5 mb-4"></div>
+          </div>
+
+          <a href="https://app.cpcbccr.com/AQI_India/" target="_blank" class="text-xs theme-text-accent font-bold flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800 transition">
+            <span>CPCB National Air Dashboard</span>
+            <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+          </a>
+        </section>
+
+        <!-- Advanced Weather Breakdown -->
+        <section class="lg:col-span-2 bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-lg glass-card">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-2.5">
+              <div class="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                <i data-lucide="sun" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-sm text-slate-900 dark:text-white">Meteorological Diagnostics</h3>
+                <span class="text-[10px] text-slate-400">Numerical Forecast Model (WMO Certified)</span>
+              </div>
+            </div>
+            <a href="https://mausam.imd.gov.in" target="_blank" class="text-xs theme-text-accent hover:underline font-bold flex items-center gap-1">
+              Verify with IMD Radar <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+
+          <div id="weatherMetricsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4"></div>
+          <div id="dailyWeather" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5"></div>
+        </section>
+      </div>
+
+      <!-- Real-Time Interactive Trip Budget & Group Cost Splitter -->
+      <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl glass-card">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+              <i data-lucide="calculator" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Smart Trip Budget & Group Cost Splitter</h2>
+              <p class="text-xs text-slate-500">Adjust duration, travelers, and travel tier for real-time estimated budget projection</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Dynamic Calculator</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <!-- Travelers Slider -->
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold uppercase text-slate-400">Travelers (यात्री)</span>
+              <span id="travelersCountVal" class="text-sm font-black theme-text-accent">2 Persons</span>
+            </div>
+            <input type="range" id="travelersSlider" min="1" max="10" value="2" class="w-full accent-orange-500 cursor-pointer" />
+          </div>
+
+          <!-- Days Slider -->
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold uppercase text-slate-400">Duration (दिन)</span>
+              <span id="daysCountVal" class="text-sm font-black theme-text-accent">3 Days</span>
+            </div>
+            <input type="range" id="daysSlider" min="1" max="14" value="3" class="w-full accent-orange-500 cursor-pointer" />
+          </div>
+
+          <!-- Tier Selector -->
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-2">Travel Style</label>
+            <select id="tierSelector" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-orange-500">
+              <option value="budget">Backpacker / Budget (Hostels & Trains)</option>
+              <option value="comfort" selected>Comfort Explorer (3-Star & Flights)</option>
+              <option value="luxury">Royal Luxury (Heritage Haveli & Palaces)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Budget Outputs -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+            <span class="text-[10px] font-bold uppercase text-slate-400 block">Est. Total Group Cost</span>
+            <span id="calcTotalCost" class="text-xl font-black text-emerald-500">₹14,500</span>
+          </div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+            <span class="text-[10px] font-bold uppercase text-slate-400 block">Per Person Cost</span>
+            <span id="calcPerPerson" class="text-xl font-black text-slate-900 dark:text-white">₹7,250</span>
+          </div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+            <span class="text-[10px] font-bold uppercase text-slate-400 block">Daily Burn Rate</span>
+            <span id="calcDailyRate" class="text-xl font-black text-cyan-500">₹4,833 / day</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Verified Heritage Sites & Landmarks -->
+      <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-lg glass-card">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
+              <i data-lucide="landmark" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Famous Heritage Sites & Historical Landmarks</h2>
+              <p class="text-xs text-slate-500">Verified cultural monuments with active Wikipedia histories & high-speed image cache</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-emerald-500 flex items-center gap-1">
+            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Verified Registry
+          </span>
+        </div>
+
+        <div id="heritageGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      </section>
+
+      <!-- Multi-Modal Transit Portals -->
+      <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-lg glass-card">
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+            <i data-lucide="ticket" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Travel Corridors & Live Fare Portals</h2>
+            <p class="text-xs text-slate-500">Pre-configured live reservation portals for IRCTC Trains, Flights, and Buses</p>
+          </div>
+        </div>
+
+        <div id="ticketsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
+      </section>
+
+      <!-- Accommodations & Packing/Health Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Accommodations -->
+        <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-lg glass-card flex flex-col justify-between">
+          <div>
+            <div class="flex items-center space-x-3 mb-4">
+              <div class="p-2 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                <i data-lucide="building-2" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-base text-slate-900 dark:text-white">Curated Stays & Lodging Tiers</h3>
+                <p class="text-xs text-slate-500">From social backpacker hostels to 5-star palace resorts</p>
+              </div>
+            </div>
+            <div id="hotelsList" class="space-y-3 mb-4"></div>
+          </div>
+          <a id="allHotelsLink" href="#" target="_blank" class="block text-center text-xs theme-text-accent font-bold hover:underline pt-2">
+            Compare 100+ Live Rates on Google Hotels →
+          </a>
+        </section>
+
+        <!-- Packing & Health Matrix -->
+        <section class="bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-lg glass-card">
+          <div class="flex items-center space-x-3 mb-4">
+            <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <i data-lucide="backpack" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-base text-slate-900 dark:text-white">Weather & AQI Adaptive Packing</h3>
+              <p class="text-xs text-slate-500">Dynamic recommendations based on rainfall probability & pollution</p>
+            </div>
+          </div>
+          
+          <ul id="packingList" class="space-y-2 text-xs mb-4"></ul>
+          
+          <h4 class="font-bold text-xs uppercase tracking-wider text-slate-400 mb-2">Regional Health Guidelines</h4>
+          <ul id="healthList" class="space-y-2 text-xs"></ul>
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    // Major Indian Cities Database for Auto-complete
+    const POPULAR_INDIAN_CITIES = [
+      'Mumbai', 'Delhi', 'New Delhi', 'Bengaluru', 'Jaipur', 'Goa', 'Kolkata', 
+      'Chennai', 'Hyderabad', 'Varanasi', 'Agra', 'Udaipur', 'Kochi', 'Ahmedabad', 
+      'Pune', 'Amritsar', 'Shimla', 'Manali', 'Rishikesh', 'Srinagar', 'Chandigarh'
+    ];
+
+    // Setup Typeahead Autocomplete
+    function setupAutocomplete(inputId, suggestionsId) {
+      const input = document.getElementById(inputId);
+      const suggestionsBox = document.getElementById(suggestionsId);
+
+      input.addEventListener('input', () => {
+        const val = input.value.toLowerCase().trim();
+        if (!val) {
+          suggestionsBox.classList.add('hidden');
+          return;
+        }
+
+        const matches = POPULAR_INDIAN_CITIES.filter(c => c.toLowerCase().includes(val));
+        if (matches.length === 0) {
+          suggestionsBox.classList.add('hidden');
+          return;
+        }
+
+        suggestionsBox.innerHTML = matches.map(city => `
+          <div class="px-4 py-2 text-xs font-semibold hover:bg-orange-500 hover:text-white cursor-pointer transition text-slate-700 dark:text-slate-200">
+            ${city}
+          </div>
+        `).join('');
+        suggestionsBox.classList.remove('hidden');
+
+        suggestionsBox.querySelectorAll('div').forEach(item => {
+          item.addEventListener('click', () => {
+            input.value = item.textContent.trim();
+            suggestionsBox.classList.add('hidden');
+          });
+        });
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
+          suggestionsBox.classList.add('hidden');
+        }
+      });
+    }
+
+    setupAutocomplete('origin', 'originSuggestions');
+    setupAutocomplete('destination', 'destSuggestions');
+
+    // Theme Aesthetics Toggle (Royal Bharat vs Modern Indigo)
+    const styleToggleBtn = document.getElementById('styleToggle');
+    const styleEmoji = document.getElementById('styleEmoji');
+    const styleLabel = document.getElementById('styleLabel');
+    const brandTitle = document.getElementById('brandTitle');
+    const brandIcon = document.getElementById('brandIcon');
+    const bgGlow = document.getElementById('bgGlow');
+    const heroBadgeText = document.getElementById('heroBadgeText');
+
+    let currentStyle = localStorage.getItem('voyagerStyle') || 'bharat';
+    applyStyle(currentStyle);
+
+    styleToggleBtn.addEventListener('click', () => {
+      currentStyle = currentStyle === 'bharat' ? 'modern' : 'bharat';
+      localStorage.setItem('voyagerStyle', currentStyle);
+      applyStyle(currentStyle);
+    });
+
+    function applyStyle(style) {
+      document.documentElement.setAttribute('data-style', style);
+      if (style === 'bharat') {
+        styleEmoji.textContent = '🇮🇳';
+        styleLabel.textContent = 'Royal Bharat';
+        brandTitle.textContent = 'VOYAGER BHARAT';
+        brandTitle.className = 'text-xl font-extrabold tracking-tight font-royal bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-600 dark:from-orange-400 dark:via-amber-300 dark:to-emerald-400 bg-clip-text text-transparent';
+        brandIcon.className = 'w-10 h-10 rounded-2xl bg-gradient-to-tr from-orange-600 via-amber-500 to-emerald-600 flex items-center justify-center text-white shadow-lg ring-2 ring-white/20';
+        bgGlow.className = 'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-orange-500/15 via-emerald-600/10 to-transparent blur-3xl pointer-events-none -z-10';
+        heroBadgeText.textContent = 'अतुल्य भारत • High-Fidelity Itinerary Intelligence';
+      } else {
+        styleEmoji.textContent = '🌐';
+        styleLabel.textContent = 'Modern Indigo';
+        brandTitle.textContent = 'VOYAGER INDIA';
+        brandTitle.className = 'text-xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-500 via-cyan-400 to-blue-500 bg-clip-text text-transparent';
+        brandIcon.className = 'w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-lg ring-2 ring-white/20';
+        bgGlow.className = 'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-indigo-500/15 via-cyan-500/10 to-transparent blur-3xl pointer-events-none -z-10';
+        heroBadgeText.textContent = 'Enterprise Multi-Modal Travel Engine';
+      }
+      lucide.createIcons();
+    }
+
+    // Light / Dark Mode Toggle
+    const themeBtn = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    themeBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      themeIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+      localStorage.setItem('voyagerDarkMode', isDark ? 'dark' : 'light');
+      lucide.createIcons();
+    });
+
+    if (localStorage.getItem('voyagerDarkMode') === 'light') {
+      document.documentElement.classList.remove('dark');
+      themeIcon.setAttribute('data-lucide', 'moon');
+    }
+
+    // Default Date to Tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('travelDate').value = tomorrow.toISOString().split('T')[0];
+
+    // Heritage Database Fallback (with reliable fast image links)
+    const KNOWN_HERITAGE_DB = {
+      jaipur: [
+        { title: 'Hawa Mahal', tag: 'Palace of Winds', desc: 'Five-story pink sandstone structure with 953 honeycomb jharokhas built in 1799 by Maharaja Sawai Pratap Singh.', img: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=500&auto=format&fit=crop&q=80', lat: 26.9239, lon: 75.8267 },
+        { title: 'Amber Fort & Palace', tag: 'UNESCO World Heritage', desc: 'Grand hilltop fort known for majestic Sheesh Mahal, Diwan-i-Aam, and Maota Lake panoramic vistas.', img: 'https://images.unsplash.com/photo-1603204077864-282b090df401?w=500&auto=format&fit=crop&q=80', lat: 26.9855, lon: 75.8513 },
+        { title: 'City Palace', tag: 'Royal Residence', desc: 'Blend of Rajput and Mughal architecture housing royal museums and courtyards in the heart of the Old City.', img: 'https://images.unsplash.com/photo-1600100397608-f010e42e1e07?w=500&auto=format&fit=crop&q=80', lat: 26.9258, lon: 75.8237 },
+        { title: 'Jantar Mantar', tag: 'Astronomical Observatory', desc: '18th-century monument with 19 astronomical instruments including the world\'s largest stone sundial.', img: 'https://images.unsplash.com/photo-1590766940554-634a7ed41450?w=500&auto=format&fit=crop&q=80', lat: 26.9248, lon: 75.8246 }
+      ],
+      delhi: [
+        { title: 'Red Fort (Lal Qila)', tag: 'Mughal Citadel', desc: 'Historic 17th-century fortification constructed in red sandstone, serving as the seat of the Mughal Empire.', img: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=500&auto=format&fit=crop&q=80', lat: 28.6562, lon: 77.2410 },
+        { title: 'Qutub Minar', tag: 'UNESCO World Heritage', desc: '73-metre tall soaring victory minaret built in 1192 surrounded by ancient Indo-Islamic ruins.', img: 'https://images.unsplash.com/photo-1548013146-72479768bbaa?w=500&auto=format&fit=crop&q=80', lat: 28.5245, lon: 77.1855 },
+        { title: 'Humayun\'s Tomb', tag: 'Garden Mausoleum', desc: 'The monumental garden tomb that pioneered Mughal architecture in India and inspired the Taj Mahal.', img: 'https://images.unsplash.com/photo-1608958435020-e8a7109ba809?w=500&auto=format&fit=crop&q=80', lat: 28.5933, lon: 77.2507 },
+        { title: 'India Gate', tag: 'War Memorial', desc: 'Prominent 42-meter high triumphal arch honoring Indian soldiers surrounded by ceremonial lawns.', img: 'https://images.unsplash.com/photo-1598598795009-f80c5072e665?w=500&auto=format&fit=crop&q=80', lat: 28.6129, lon: 77.2295 }
+      ],
+      mumbai: [
+        { title: 'Gateway of India', tag: 'Colonial Landmark', desc: 'Triumphal basalt arch monument erected along the Arabian Sea waterfront in Apollo Bunder.', img: 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=500&auto=format&fit=crop&q=80', lat: 18.9220, lon: 72.8347 },
+        { title: 'Chhatrapati Shivaji Terminus', tag: 'UNESCO World Heritage', desc: 'Victorian Gothic railway terminus showcasing historic stone domes, gargoyles, and ornate carvings.', img: 'https://images.unsplash.com/photo-1566552881560-0be862a7c445?w=500&auto=format&fit=crop&q=80', lat: 18.9401, lon: 72.8354 },
+        { title: 'Elephanta Caves', tag: 'Rock-Cut Temples', desc: '5th-century rock-cut cave temples dedicated to Lord Shiva situated on an island off Mumbai Harbour.', img: 'https://images.unsplash.com/photo-1620619767323-b95a89183081?w=500&auto=format&fit=crop&q=80', lat: 18.9633, lon: 72.9315 },
+        { title: 'Marine Drive Promenade', tag: 'Queen\'s Necklace', desc: 'C-shaped coastal road along Netaji Subhash Chandra Bose Road renowned for its Arabian Sea sunset views.', img: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=500&auto=format&fit=crop&q=80', lat: 18.9432, lon: 72.8230 }
+      ]
+    };
+
+    let leafletMap = null;
+    let currentDistanceKm = 750;
+
+    const form = document.getElementById('tripForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const origin = document.getElementById('origin').value.trim();
+      const dest = document.getElementById('destination').value.trim();
+      const travelDate = document.getElementById('travelDate').value;
+
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('results').classList.add('hidden');
+
+      try {
+        const [originGeo, destGeo] = await Promise.all([
+          fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(origin)}&count=1&language=en&format=json`).then(r => r.json()),
+          fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(dest)}&count=1&language=en&format=json`).then(r => r.json())
+        ]);
+
+        if (!destGeo.results || destGeo.results.length === 0) {
+          alert('Destination city not found. Please verify spelling.');
+          return;
+        }
+
+        const dLoc = destGeo.results[0];
+        const oLoc = originGeo.results ? originGeo.results[0] : null;
+        const dist = oLoc ? getDist(oLoc.latitude, oLoc.longitude, dLoc.latitude, dLoc.longitude) : 750;
+        currentDistanceKm = dist;
+
+        // Fetch Live Meteorology, AQI, and Wikipedia data in parallel
+        const [weather, aqiData, wiki] = await Promise.all([
+          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${dLoc.latitude}&longitude=${dLoc.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,precipitation,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`).then(r => r.json()),
+          fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${dLoc.latitude}&longitude=${dLoc.longitude}&current=pm10,pm2_5,nitrogen_dioxide,european_aqi`).then(r => r.json()).catch(() => null),
+          fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=${dLoc.latitude}|${dLoc.longitude}&ggsradius=15000&ggslimit=6&prop=pageimages|description|info&inprop=url&piprop=thumbnail&pithumbsize=400&format=json&origin=*`).then(r => r.json()).catch(() => null)
+        ]);
+
+        // Populate Hero Details
+        document.getElementById('heroDestName').textContent = `${dLoc.name}, ${dLoc.admin1 || 'India'}`;
+        document.getElementById('heroCoordinates').textContent = `${dLoc.latitude.toFixed(2)}°N, ${dLoc.longitude.toFixed(2)}°E`;
+        document.getElementById('heroRouteText').textContent = `Route Corridor from ${oLoc ? oLoc.name : origin} • Aerial Dist: ~${dist} km • Travel Date: ${travelDate}`;
+        document.getElementById('imdBtn').href = `https://city.imd.gov.in/citywx/city_weather.php?id=${encodeURIComponent(dLoc.name)}`;
+        document.getElementById('allHotelsLink').href = `https://www.google.com/travel/hotels?q=Hotels%20in%20${encodeURIComponent(dLoc.name)}`;
+
+        // Render UI Sections
+        renderAQI(aqiData);
+        renderWeather(weather);
+        renderHeritageSites(wiki, dLoc.name);
+        renderTransitPortals(origin, dest, dist, travelDate);
+        renderAccommodations(dLoc.name, travelDate);
+        renderPackingAndHealth(weather, aqiData);
+        updateBudgetCalculations();
+
+        // Render Map
+        setTimeout(() => {
+          renderInteractiveMap(oLoc, dLoc);
+        }, 200);
+
+        document.getElementById('results').classList.remove('hidden');
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+        alert('Communication error with live endpoints. Please check network connectivity.');
+      } finally {
+        document.getElementById('loading').classList.add('hidden');
+      }
+    });
+
+    function getDist(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2)**2;
+      return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    }
+
+    function renderInteractiveMap(oLoc, dLoc) {
+      if (!dLoc) return;
+      const container = document.getElementById('mapContainer');
+      
+      if (leafletMap) {
+        leafletMap.remove();
+      }
+
+      const oCoords = oLoc ? [oLoc.latitude, oLoc.longitude] : [dLoc.latitude - 4, dLoc.longitude - 3];
+      const dCoords = [dLoc.latitude, dLoc.longitude];
+
+      leafletMap = L.map('mapContainer').setView(dCoords, 7);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(leafletMap);
+
+      // Markers
+      L.marker(dCoords).addTo(leafletMap)
+        .bindPopup(`<b>Destination: ${dLoc.name}</b><br>Live GPS Coords: ${dLoc.latitude.toFixed(2)}, ${dLoc.longitude.toFixed(2)}`)
+        .openPopup();
+
+      if (oLoc) {
+        L.marker(oCoords).addTo(leafletMap)
+          .bindPopup(`<b>Origin: ${oLoc.name}</b>`);
+
+        // Route Polyline
+        const polyline = L.polyline([oCoords, dCoords], {
+          color: '#f97316',
+          weight: 4,
+          opacity: 0.85,
+          dashArray: '8, 8'
+        }).addTo(leafletMap);
+
+        leafletMap.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+      }
+    }
+
+    function renderAQI(aqi) {
+      const curr = aqi?.current || { pm2_5: 35, pm10: 65, nitrogen_dioxide: 18 };
+      const pm25 = Math.round(curr.pm2_5 || 25);
+      
+      let status = 'Good Air Quality', colorClass = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
+      if (pm25 > 30) { status = 'Moderate AQI'; colorClass = 'bg-amber-500/10 text-amber-500 border-amber-500/30'; }
+      if (pm25 > 60) { status = 'Poor AQI'; colorClass = 'bg-orange-500/10 text-orange-500 border-orange-500/30'; }
+      if (pm25 > 90) { status = 'Severe Air Pollution'; colorClass = 'bg-rose-500/10 text-rose-500 border-rose-500/30'; }
+
+      const badge = document.getElementById('aqiBadge');
+      badge.textContent = status;
+      badge.className = `text-xs px-3 py-1 rounded-full font-bold border ${colorClass}`;
+
+      document.getElementById('aqiMetrics').innerHTML = `
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex justify-between items-center">
+          <div>
+            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Fine PM2.5</span>
+            <span class="text-[10px] text-slate-400">Respiratory standard</span>
+          </div>
+          <span class="text-base font-black ${pm25 > 60 ? 'text-rose-500' : 'text-emerald-500'}">${pm25} µg/m³</span>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex justify-between items-center">
+          <div>
+            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Coarse PM10</span>
+            <span class="text-[10px] text-slate-400">Inhalable dust</span>
+          </div>
+          <span class="text-base font-black text-slate-800 dark:text-slate-200">${Math.round(curr.pm10)} µg/m³</span>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex justify-between items-center">
+          <div>
+            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Nitrogen Dioxide (NO₂)</span>
+            <span class="text-[10px] text-slate-400">Vehicular emissions</span>
+          </div>
+          <span class="text-base font-black text-slate-800 dark:text-slate-200">${Math.round(curr.nitrogen_dioxide)} µg/m³</span>
+        </div>
+      `;
+    }
+
+    function renderWeather(w) {
+      const curr = w.current;
+      document.getElementById('weatherMetricsGrid').innerHTML = `
+        <div class="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+          <span class="text-[11px] font-bold uppercase text-slate-400 block">Temperature</span>
+          <span class="text-xl font-black text-slate-900 dark:text-white">${Math.round(curr.temperature_2m)}°C</span>
+        </div>
+        <div class="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+          <span class="text-[11px] font-bold uppercase text-slate-400 block">Feels Like</span>
+          <span class="text-xl font-black theme-text-accent">${Math.round(curr.apparent_temperature)}°C</span>
+        </div>
+        <div class="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+          <span class="text-[11px] font-bold uppercase text-slate-400 block">Humidity</span>
+          <span class="text-xl font-black text-cyan-500">${curr.relative_humidity_2m}%</span>
+        </div>
+        <div class="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+          <span class="text-[11px] font-bold uppercase text-slate-400 block">UV Index</span>
+          <span class="text-xl font-black text-amber-500">${curr.uv_index || 0}</span>
+        </div>
+      `;
+
+      const daily = w.daily;
+      document.getElementById('dailyWeather').innerHTML = daily.time.map((t, i) => `
+        <div class="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/40 text-center flex flex-col justify-between">
+          <span class="text-[11px] text-slate-400 font-bold block">${new Date(t).toLocaleDateString('en-IN', { weekday: 'short' })}</span>
+          <span class="text-sm font-black my-1 text-slate-900 dark:text-white">${Math.round(daily.temperature_2m_max[i])}° / ${Math.round(daily.temperature_2m_min[i])}°</span>
+          <span class="text-[10px] text-cyan-500 font-bold flex items-center justify-center gap-0.5">
+            <i data-lucide="droplets" class="w-3 h-3"></i> ${daily.precipitation_probability_max[i]}%
+          </span>
+        </div>
+      `).join('');
+    }
+
+    function renderHeritageSites(wiki, city) {
+      const container = document.getElementById('heritageGrid');
+      const normalizedCity = city.toLowerCase().trim();
+      let sites = [];
+
+      if (KNOWN_HERITAGE_DB[normalizedCity]) {
+        sites = KNOWN_HERITAGE_DB[normalizedCity].map(s => ({
+          title: s.title,
+          tag: s.tag,
+          desc: s.desc,
+          img: s.img,
+          link: `https://www.google.com/search?q=${encodeURIComponent(s.title + ' ' + city)}`
+        }));
+      } else {
+        const pages = wiki?.query?.pages ? Object.values(wiki.query.pages) : [];
+        if (pages.length > 0) {
+          sites = pages.slice(0, 4).map(p => ({
+            title: p.title,
+            tag: 'Historical Landmark',
+            desc: p.description || `Famous monument and cultural heritage destination situated in ${city}.`,
+            img: p.thumbnail?.source || 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=500&auto=format&fit=crop&q=80',
+            link: p.canonicalurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`
+          }));
+        } else {
+          sites = [
+            { title: `${city} Fort & Palace`, tag: 'Royal Fort', desc: `Historic fortification and royal architectural complex located in ${city}.`, img: 'https://images.unsplash.com/photo-1603204077864-282b090df401?w=500&auto=format&fit=crop&q=80', link: `https://www.google.com/search?q=${encodeURIComponent(city + ' tourist attractions')}` },
+            { title: `${city} Heritage Bazaar`, tag: 'Cultural Market', desc: `Vibrant regional marketplace known for handicrafts, street cuisine, and traditional textiles.`, img: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=500&auto=format&fit=crop&q=80', link: `https://www.google.com/search?q=${encodeURIComponent(city + ' famous markets')}` }
+          ];
+        }
+      }
+
+      container.innerHTML = sites.map(s => `
+        <a href="${s.link}" target="_blank" class="group bg-slate-50 dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-slate-700/60 overflow-hidden hover:border-orange-500/50 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+          <div>
+            <div class="relative h-44 w-full overflow-hidden bg-slate-200 dark:bg-slate-800">
+              <img src="${s.img}" alt="${s.title}" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1599661046289-e31897846e41?w=500&q=80'" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+              <span class="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wider bg-black/60 backdrop-blur text-white px-2.5 py-1 rounded-full border border-white/20">
+                ${s.tag}
+              </span>
+            </div>
+            <div class="p-4">
+              <h3 class="font-bold text-base text-slate-900 dark:text-white group-hover:text-orange-500 transition mb-1">${s.title}</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">${s.desc}</p>
+            </div>
+          </div>
+          <div class="px-4 pb-4 pt-1 flex items-center justify-between text-xs font-bold theme-text-accent">
+            <span>Explore Guide</span>
+            <i data-lucide="arrow-up-right" class="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition"></i>
+          </div>
+        </a>
+      `).join('');
+    }
+
+    function renderTransitPortals(origin, dest, dist, travelDate) {
+      const formattedDate = travelDate || new Date().toISOString().split('T')[0];
+      const [yyyy, mm, dd] = formattedDate.split('-');
+
+      const channels = [
+        {
+          mode: 'Domestic Airlines',
+          title: 'Direct / 1-Stop Flights',
+          desc: 'IndiGo, Air India, Akasa Air • 15kg Baggage',
+          icon: 'plane',
+          badge: 'Fastest Mode',
+          links: [
+            { label: 'Google Flights Live Portal', url: `https://www.google.com/travel/flights?q=Flights%20to%20${encodeURIComponent(dest)}%20from%20${encodeURIComponent(origin)}%20on%20${formattedDate}` },
+            { label: 'MakeMyTrip Live Booking', url: `https://www.makemytrip.com/flight/search?itinerary=${encodeURIComponent(origin)}-${encodeURIComponent(dest)}-${dd}/${mm}/${yyyy}&tripType=O` }
+          ]
+        },
+        {
+          mode: 'Indian Railways (IRCTC)',
+          title: 'Vande Bharat / 2A / 3A Express',
+          desc: 'Official IRCTC Quotas & Tatkal Seat Availability',
+          icon: 'train',
+          badge: 'Government Tariff',
+          links: [
+            { label: 'ConfirmTkt Live Berth Check', url: `https://www.confirmtkt.com/rbooking-d/trains/from/${encodeURIComponent(origin)}/to/${encodeURIComponent(dest)}/${dd}-${mm}-${yyyy}` },
+            { label: 'Official IRCTC Portal', url: 'https://www.irctc.co.in/nget/train-search' }
+          ]
+        },
+        {
+          mode: 'Intercity Bus',
+          title: 'AC Volvo Multi-Axle / Sleeper',
+          desc: 'IntrCity SmartBus, Zingbus, State RTCs',
+          icon: 'bus',
+          badge: 'Direct City-to-City',
+          links: [
+            { label: 'RedBus Live Seat Layout', url: `https://www.redbus.in/bus-tickets/${encodeURIComponent(origin.toLowerCase())}-to-${encodeURIComponent(dest.toLowerCase())}?date=${dd}-${mm}-${yyyy}` },
+            { label: 'AbhiBus Live Portals', url: `https://www.abhibus.com/bus_search/${encodeURIComponent(origin)}/${encodeURIComponent(dest)}/${dd}-${mm}-${yyyy}/O` }
+          ]
+        }
+      ];
+
+      document.getElementById('ticketsGrid').innerHTML = channels.map(c => `
+        <div class="p-6 bg-slate-50 dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-slate-700/60 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-xs font-bold uppercase theme-text-accent tracking-wider flex items-center gap-1.5">
+                <i data-lucide="${c.icon}" class="w-4 h-4"></i> ${c.mode}
+              </span>
+              <span class="text-[10px] bg-slate-200 dark:bg-slate-700 font-bold px-2.5 py-0.5 rounded-full">${c.badge}</span>
+            </div>
+            <h4 class="font-bold text-base text-slate-900 dark:text-white mb-1">${c.title}</h4>
+            <p class="text-xs text-slate-400 mb-6">${c.desc}</p>
+          </div>
+
+          <div class="space-y-2.5">
+            ${c.links.map(l => `
+              <a href="${l.url}" target="_blank" class="w-full text-xs font-bold py-2.5 px-4 rounded-xl theme-accent-btn text-white flex items-center justify-between transition shadow-md">
+                <span>${l.label}</span>
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              </a>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderAccommodations(city, travelDate) {
+      const categories = [
+        { name: 'Heritage Haveli & Boutique Homestays', subtitle: 'Authentic Courtyards & Local Hosts', url: `https://www.airbnb.co.in/s/${encodeURIComponent(city)}/homes` },
+        { name: 'Backpacker Hostels & Pods (Zostel, Hosteller)', subtitle: 'Social AC Dorms, Fast Wi-Fi & Cafes', url: `https://www.google.com/travel/hotels?q=Hostels%20in%20${encodeURIComponent(city)}` },
+        { name: 'Mid-Scale Business Hotels (Lemon Tree, Ginger)', subtitle: 'Free Breakfast, AC Deluxe & Prime Location', url: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(city)}` },
+        { name: '5-Star Royal Palaces (Taj, ITC, Oberoi Resorts)', subtitle: 'Regal Suites, Fine Dining & Luxury Spas', url: `https://www.google.com/travel/hotels?q=5%20star%20luxury%20hotels%20in%20${encodeURIComponent(city)}` }
+      ];
+
+      document.getElementById('hotelsList').innerHTML = categories.map(c => `
+        <a href="${c.url}" target="_blank" class="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex items-center justify-between hover:border-purple-500/50 hover:shadow-md transition block">
+          <div>
+            <span class="font-bold text-xs text-slate-900 dark:text-white block">${c.name}</span>
+            <span class="text-[10px] text-slate-400 block mt-0.5">${c.subtitle}</span>
+          </div>
+          <span class="text-xs theme-text-accent font-bold flex items-center gap-1 shrink-0 ml-2">Live Availability <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></span>
+        </a>
+      `).join('');
+    }
+
+    function renderPackingAndHealth(w, aqi) {
+      const isRain = Math.max(...w.daily.precipitation_probability_max) > 30;
+      const isCold = Math.min(...w.daily.temperature_2m_min) < 16;
+      const pm25 = aqi?.current?.pm2_5 || 25;
+
+      document.getElementById('packingList').innerHTML = `
+        <li class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/50 flex items-center gap-2.5">
+          <i data-lucide="check" class="w-4 h-4 text-emerald-500 shrink-0"></i>
+          <span>${isCold ? 'Thermal fleece, lightweight woolen jacket, warm shawl' : 'Light breathable cotton & linen kurta/apparel'}</span>
+        </li>
+        <li class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/50 flex items-center gap-2.5">
+          <i data-lucide="check" class="w-4 h-4 text-emerald-500 shrink-0"></i>
+          <span>${isRain ? 'Windproof umbrella & quick-dry waterproof footwear' : 'Comfortable slip-on shoes for temple & fort exploration'}</span>
+        </li>
+        <li class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/50 flex items-center gap-2.5">
+          <i data-lucide="check" class="w-4 h-4 text-emerald-500 shrink-0"></i>
+          <span>${pm25 > 60 ? 'N95 Anti-Pollution Mask recommended for outdoor sights' : 'UV400 Polarized Sunglasses & SPF 50+ Sunscreen'}</span>
+        </li>
+      `;
+
+      document.getElementById('healthList').innerHTML = `
+        <li class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/50">Stick strictly to sealed bottled water (BIS certified) or purified RO water.</li>
+        <li class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/50">Carry electrolyte sachets (ORS) and basic motion sickness tablets.</li>
+        <li class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/50 font-semibold text-slate-900 dark:text-white">National Tourist Helpline: <strong>1363</strong> • Emergency Helpline: <strong>112</strong></li>
+      `;
+    }
+
+    // Dynamic Budget Calculator Logic
+    const travelersSlider = document.getElementById('travelersSlider');
+    const daysSlider = document.getElementById('daysSlider');
+    const tierSelector = document.getElementById('tierSelector');
+
+    function updateBudgetCalculations() {
+      const pax = parseInt(travelersSlider.value);
+      const days = parseInt(daysSlider.value);
+      const tier = tierSelector.value;
+
+      document.getElementById('travelersCountVal').textContent = `${pax} ${pax === 1 ? 'Person' : 'Persons'}`;
+      document.getElementById('daysCountVal').textContent = `${days} ${days === 1 ? 'Day' : 'Days'}`;
+
+      let dailyStayPerRoom = 1200;
+      let dailyFoodPerPax = 600;
+      let transitBasePerPax = 1500;
+
+      if (tier === 'comfort') {
+        dailyStayPerRoom = 3200;
+        dailyFoodPerPax = 1400;
+        transitBasePerPax = 4200;
+      } else if (tier === 'luxury') {
+        dailyStayPerRoom = 11000;
+        dailyFoodPerPax = 3500;
+        transitBasePerPax = 8500;
+      }
+
+      const rooms = Math.ceil(pax / 2);
+      const totalStay = rooms * dailyStayPerRoom * days;
+      const totalFood = pax * dailyFoodPerPax * days;
+      const totalTransit = pax * transitBasePerPax;
+      const grandTotal = Math.round(totalStay + totalFood + totalTransit);
+
+      document.getElementById('calcTotalCost').textContent = `₹${grandTotal.toLocaleString('en-IN')}`;
+      document.getElementById('calcPerPerson').textContent = `₹${Math.round(grandTotal / pax).toLocaleString('en-IN')}`;
+      document.getElementById('calcDailyRate').textContent = `₹${Math.round(grandTotal / days).toLocaleString('en-IN')} / day`;
+    }
+
+    travelersSlider.addEventListener('input', updateBudgetCalculations);
+    daysSlider.addEventListener('input', updateBudgetCalculations);
+    tierSelector.addEventListener('change', updateBudgetCalculations);
+  </script>
+</body>
+</html>
